@@ -16,73 +16,35 @@ printf """$green     ___  _
 
 $end"""
 
-if [ $1 ]
-then
-    :
-else
+if [ -z "$1" ]; then
     printf "Usage: ./apk.sh <path to apk file>\n"
-    exit
+    return 1
 fi
 
 apk=$1
-IFS='/' read -a temp <<< "$apk"
-temp=${temp[-1]}
-name=${temp::-4}
 dir=$( pwd )
-if [ $dir == "/root" ]
-then
-    decom="/root/Diggy/$name"
-    links="/root/Diggy/$name.txt"
-else
-    decom="$dir/$name"
-    links="$dir/$name.txt"
-fi
+name=$(echo "$apk" | sed -E "s|[^a-zA-Z0-9]+|-|")
+
+decom="$dir/$name"
+links="$dir/$name.txt"
+
+touch $links
 
 if type "apktool" > /dev/null; then
   :
 else
     printf "$bad Diggy requires 'apktool' to be installed."
-    exit
+    return 1
 fi
 
-if [ -e $decom ]
-then
-    printf $"$info Looks like this apk has been decompiled already.\n"
-    printf "$que"
-    read -p " Decompile over the existing copy? [y/N] " choice
-    if [ choice == "y" ]
-    then
-        rm -r $decom
-    else
-        :
-    fi
-else
-    :
-fi
-
-if [ -e $links ]
-then
-    printf $"$info Looks like links have been already extracted from this apk.\n"
-    printf "$que"
-    read -p " Rewrite the previous result? [y/N] " choice
-    if [ choice == "y" ]
-    then
-        rm $links
-    else
-        :
-    fi
-else
-    :
-fi
-
-extract () {
+extract() {
     k=$(apktool d $apk -o $decom -fq)
 }
 
-regxy () {
-    matches=$(grep -ProI "[\"'\`](https?://|/)[\w\.-/]+[\"'\`]")
-    for final in $matches
-    do
+regxy() {
+    matches=$(grep -EroI "[\"'\`](https?://|/)[\w\.-/]+[\"'\`]")
+    for final in $matches; do
+        
         final=${final//$"\""/}
         final=${final//$"'"/}
         if [ $(echo "$final" | grep "http://schemas.android.com") ]
@@ -101,4 +63,3 @@ extract
 printf $"$run Extracting endpoints\n"
 regxy
 printf $"$info Endpoints saved in: $links\n"
-exit
